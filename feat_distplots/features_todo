@@ -1,0 +1,11 @@
+feature_0: not much
+feature_1: maybe removing 0?
+feature_2: maybe removing 0?
+feature_3: high kurtosis at one bin, non-zero mean, but very small bin on the left oh high kurt
+feature_4: high kurtosis at one bin, non-zero mean, but very small bin on the left oh high kurt
+feature_5: just high kurt, non-distiguisable dists, should stay the same
+feature_6: high kurtosis at one bin, non-zero mean, but very small bin on the left oh high kurt
+feature_7: need to remove extreme high kurt, non-zero bin
+feature_8: need to remove extreme high kurt, non-zero bin
+feature_9: need to remove extreme high kurt, non-zero bin
+feature_10: just high kurt, non-distiguisable dists, should stay the same
