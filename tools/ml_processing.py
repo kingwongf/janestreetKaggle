@@ -13,6 +13,7 @@ from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import BaggingClassifier
 from sklearn.ensemble import VotingClassifier
+import pandas as pd
 
 
 # Model fine-tuning and evaluation
