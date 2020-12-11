@@ -9,17 +9,18 @@ from matplotlib import pyplot as plt
 import os
 import pandas as pd
 
-n = 200
-n_train = 190
+n = 5000
+n_train = 4800
 n_dev = n - n_train
+epochs = 20
+batch_size = 40
+loss = 'binary_crossentropy'
+metrics = ['binary_crossentropy']
+
+
 file = '../jane-street-market-prediction/train.csv'
 os.chdir(r'C:\Kaggle-King\janestreetKaggle')
 
-n_points = 2000
-n_input = 50
-n_train = 1800
-n_validation = 100
-n_test = 100
 
 if __name__ == '__main__':
     # as an input, we've got: 129 features, 1 date, 1 id,       1 weight,       1 + 4 responses
@@ -46,10 +47,10 @@ if __name__ == '__main__':
     model_1 = keras.models.Sequential()
     model_1.add(keras.layers.Dense(20, input_dim=x_train.shape[1], activation="tanh"))
     model_1.add(keras.layers.Dense(1, activation="tanh"))
-    model_1.compile(loss='binary_crossentropy', optimizer='adam', metrics=['binary_crossentropy'])
+    model_1.compile(loss=loss, optimizer='adam', metrics=metrics)
     # model_1.build(input_shape=(131,))
     model_1.summary()
-    model_1.fit(x_train, y_train, epochs=10, batch_size=2)
+    model_1.fit(x_train, y_train, epochs=epochs, batch_size=batch_size)
     _, error = model_1.evaluate(x_train, y_train)
     print('error:', error)
 
@@ -60,3 +61,29 @@ if __name__ == '__main__':
 
     data_2 = np.concatenate([np.sign(prediction).astype(int), np.sign(y_dev).astype(int)], axis=1)
     comparison_2 = pd.DataFrame(data=data_2, columns=['prediction', 'y_hat'])
+
+    results = y_data[['resp', 'weight']].iloc[n_train:n_train + n_dev]
+    results['action'] = np.sign(prediction).astype(int)
+
+    score = sum(results.prod(axis=1))       # to be refined by date
+    p = np.array([score])
+    t = p.sum()/np.sqrt((p*p).sum())*np.sqrt(250/len(p))
+    u = min(max(0, t), 6)*p.sum()
+
+# todo: normalise and use sigmoid. We are obtaining always negative outputs...
+# todo: QUESTION: to compute the final score, we need the 'resp', but they are not going to provide it to us?...
+# todo: find the optimal threshold to tune the network
+# todo: find a way to train hyperparam efficiently
+# todo: compute the final score from Kaggle
+# todo: dropout is ok to use?
+# todo: hyperparam tuning (from lessons).
+# todo: review code from King
+# todo: RESTnet
+# todo: look at King's version 4/4
+# todo: find out why Hyperparam from King crashes with memory
+# todo: change BatchNormalization
+# todo: change loss function
+# todo: raise the number of neurons
+# todo: build network with connections (internal)
+# todo: use reinforced learning
+
