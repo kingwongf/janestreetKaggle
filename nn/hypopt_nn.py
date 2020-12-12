@@ -1,24 +1,20 @@
+# coding=utf-8
 from __future__ import print_function
 import numpy as np
-
 from hyperopt import Trials, STATUS_OK, tpe
-
-import tensorflow as tf
-tf.random.set_seed(42)
-
 # import tensorflow.keras.backend as K
 # import tensorflow.keras.layers as layers
 # from tensorflow.keras.callbacks import Callback, ReduceLROnPlateau, ModelCheckpoint, EarlyStopping
-
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
 from keras.layers.core import Dense, Dropout, Activation
 from keras.models import Sequential
 from keras.utils import np_utils
-
 from hyperas import optim
 from hyperas.distributions import choice, uniform
+import mnist
+
+tf.random.set_seed(42)
 
 
 def data():
@@ -60,31 +56,23 @@ def create_model(x_train, y_train, x_test, y_test):
     model.add(Dense({{choice([256, 512, 1024])}}))
     model.add(Activation({{choice(['relu', 'sigmoid'])}}))
     model.add(Dropout({{uniform(0, 1)}}))
-
     # If we choose 'four', add an additional fourth layer
     if {{choice(['three', 'four'])}} == 'four':
         model.add(Dense(100))
-
         # We can also choose between complete sets of layers
-
         model.add({{choice([Dropout(0.5), Activation('linear')])}})
         model.add(Activation('relu'))
-
     model.add(Dense(10))
     model.add(Activation('softmax'))
-
     model.compile(loss='categorical_crossentropy', metrics=['accuracy'],
                   optimizer={{choice(['rmsprop', 'adam', 'sgd'])}})
-
     result = model.fit(x_train, y_train,
-              batch_size={{choice([64, 128])}},
-              epochs=2,
-              verbose=2,
-              validation_split=0.1)
-
-
-    #get the highest validation accuracy of the training epochs
-    validation_acc = np.amax(result.history['val_acc']) 
+                       batch_size={{choice([64, 128])}},
+                       epochs=2,
+                       verbose=2,
+                       validation_split=0.1)
+    # get the highest validation accuracy of the training epochs
+    validation_acc = np.amax(result.history['val_acc'])
     print('Best validation acc of epoch:', validation_acc)
     return {'loss': -validation_acc, 'status': STATUS_OK, 'model': model}
 
