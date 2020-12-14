@@ -2,8 +2,10 @@
 # TODO: save parameters of the trained model
 # TODO: develop test functions?
 # TODO: include the feature matrix somehow in the data preprocessing (computing effectively the mean of the feature can be a strategy)
+# TODO: include resp1, ... , resp4
 
 # CONCLUSION: USING THE TANH NETWORK CAN GIVE YOU SCORES THAT ARE 0, BECASUE THE SCORE FUNCTION CAN GO NEGATIVE EVEN AFTER 300.000 ITERATIONS.
+# EVEN IF THE MODEL HAS LOW BIAS AND LOW VARIANCE, WHEN THE METRIC IS REPLACED WITH THE EVALUATION SCORE, THIS GOES TO 0
 
 from janestreetKaggle.tools import big_csv_reader as bcr
 from tensorflow import keras
@@ -23,6 +25,16 @@ working_dir = 'C:/Kaggle-King'
 os.chdir(working_dir)
 models_dir = working_dir + '/janestreetKaggle/nn/saved_models/'
 file = working_dir + '/jane-street-market-prediction/train.csv'
+
+
+def compute_scores(edge_0: int, edge_1: int, actions):
+    results = y_data[['resp', 'weight']].iloc[edge_0:edge_1]
+    results['action'] = actions
+    current_score = score(r=results)
+    results['action'] = (results['resp'] > 0)*1
+    max_possible_score = score(r=results)
+    print('max score:', max_possible_score, ' -- this score:', current_score, ' -- %:', current_score/max_possible_score*100)
+    return current_score, max_possible_score
 
 
 def score(r):
@@ -84,6 +96,17 @@ if __name__ == '__main__':
     binary_y_dev = (y_dev > 0)*1
     outcome = (binary_prediction - binary_y_dev)*1
 
+    # compute the scores on the train set and then on the dev set (weight, resp, action):
+    prediction_ot = model_2.predict(x_train)
+    # now it compares the output after converting to binary classes
+    binary_prediction_ot = (prediction_ot > 0)*1
+    binary_y_train = (y_train > 0)*1
+
+    print('score on training set')
+    compute_scores(edge_0=0, edge_1=n_train, actions=binary_prediction_ot)
+    print('score on dev set')
+    compute_scores(edge_0=n_train, edge_1=n_train + n_dev, actions=binary_prediction)
+
     plt.figure()
     plt.plot(prediction, label='prediction'), plt.plot(y_dev, label='y_dev')
     plt.legend(), plt.show()
@@ -91,14 +114,6 @@ if __name__ == '__main__':
     plt.figure()
     plt.plot(outcome, 'ro', ms=1, label='prediction - truth')
     plt.legend(), plt.show()
-
-    # compute the score on the dev set (weight, resp, action) :
-    results = y_data[['resp', 'weight']].iloc[n_train:n_train + n_dev]
-    results['action'] = binary_prediction
-    current_score = score(r=results)
-    results['action'] = (results['resp'] > 0)*1
-    max_possible_score = score(r=results)
-    print('max score:', max_possible_score, ' -- this score:', current_score, ' -- %:', current_score/max_possible_score*100)
 
 
 # todo: normalise and use sigmoid. We are obtaining always negative outputs...
