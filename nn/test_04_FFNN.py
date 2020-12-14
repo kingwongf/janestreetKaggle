@@ -1,6 +1,9 @@
 # coding=utf-8
 # TODO: save parameters of the trained model
 # TODO: develop test functions?
+# TODO: include the feature matrix somehow in the data preprocessing (computing effectively the mean of the feature can be a strategy)
+
+# CONCLUSION: USING THE TANH NETWORK CAN GIVE YOU SCORES THAT ARE 0, BECASUE THE SCORE FUNCTION CAN GO NEGATIVE EVEN AFTER 300.000 ITERATIONS.
 
 from janestreetKaggle.tools import big_csv_reader as bcr
 from tensorflow import keras
@@ -8,17 +11,26 @@ import numpy as np
 import os
 from matplotlib import pyplot as plt
 
-n = 3000
-n_train = 2900
+n = 300000
+n_train = 290000
 n_dev = n - n_train
-epochs = 5
-batch_size = 2
-loss = 'binary_crossentropy'
-metrics = ['binary_crossentropy']
+epochs = 1
+batch_size = 1
+loss = 'MeanSquaredError'
+metrics = ['MeanAbsoluteError']
+
+working_dir = 'C:/Kaggle-King'
+os.chdir(working_dir)
+models_dir = working_dir + '/janestreetKaggle/nn/saved_models/'
+file = working_dir + '/jane-street-market-prediction/train.csv'
 
 
-os.chdir('C:/Kaggle-King')
-file = './jane-street-market-prediction/train.csv'
+def score(r):
+    s = sum(r.prod(axis=1))  # to be refined by date
+    p = np.array([s])
+    t = p.sum() / np.sqrt((p * p).sum()) * np.sqrt(250 / len(p))
+    u = min(max(0, t), 6) * p.sum()
+    return u
 
 
 if __name__ == '__main__':
@@ -59,6 +71,7 @@ if __name__ == '__main__':
     model_2.compile(loss=loss, optimizer='Adam', metrics=metrics)
     model_2.summary()
     model_2.fit(x_train, y_train, epochs=epochs, batch_size=batch_size)
+    model_2.save(models_dir + 'model_01_with_tanh')
     _, error = model_2.evaluate(x_train, y_train)
     print('bias:', error)
     dev_loss, dev_acc = model_2.evaluate(x_dev, y_dev)
@@ -66,28 +79,27 @@ if __name__ == '__main__':
     print("Test loss", dev_loss)
     # TEST VARIANCE ON THE DEV SET
     prediction = model_2.predict(x_dev)
+    # now it compares the output after converting to binary classes
+    binary_prediction = (prediction > 0)*1
+    binary_y_dev = (y_dev > 0)*1
+    outcome = (binary_prediction - binary_y_dev)*1
 
     plt.figure()
     plt.plot(prediction, label='prediction'), plt.plot(y_dev, label='y_dev')
-    plt.legend()
-    plt.show()
+    plt.legend(), plt.show()
 
-    # TEST ON THE DEV SET WITH SCORE
-    if False:
-        prediction = model_2.predict(x_dev)
-        data = np.concatenate([prediction, y_dev], axis=1)
-        comparison = pd.DataFrame(data=data, columns=['prediction', 'y_hat'])
+    plt.figure()
+    plt.plot(outcome, 'ro', ms=1, label='prediction - truth')
+    plt.legend(), plt.show()
 
-        data_2 = np.concatenate([np.sign(prediction).astype(int), np.sign(y_dev).astype(int)], axis=1)
-        comparison_2 = pd.DataFrame(data=data_2, columns=['prediction', 'y_hat'])
+    # compute the score on the dev set (weight, resp, action) :
+    results = y_data[['resp', 'weight']].iloc[n_train:n_train + n_dev]
+    results['action'] = binary_prediction
+    current_score = score(r=results)
+    results['action'] = (results['resp'] > 0)*1
+    max_possible_score = score(r=results)
+    print('max score:', max_possible_score, ' -- this score:', current_score, ' -- %:', current_score/max_possible_score*100)
 
-        results = y_data[['resp', 'weight']].iloc[n_train:n_train + n_dev]
-        results['action'] = np.sign(prediction).astype(int)
-
-        score = sum(results.prod(axis=1))       # to be refined by date
-        p = np.array([score])
-        t = p.sum()/np.sqrt((p*p).sum())*np.sqrt(250/len(p))
-        u = min(max(0, t), 6)*p.sum()
 
 # todo: normalise and use sigmoid. We are obtaining always negative outputs...
 # todo: QUESTION: to compute the final score, we need the 'resp', but they are not going to provide it to us?...
@@ -105,4 +117,5 @@ if __name__ == '__main__':
 # todo: raise the number of neurons
 # todo: build network with connections (internal)
 # todo: use reinforced learning
-
+# todo: link the feature 0 (only -1 / 1) to the last layer in a way we compare only integers (use sigmoids...?)
+# todo: suppress lines where weight is 0
