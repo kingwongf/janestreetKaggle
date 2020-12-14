@@ -13,11 +13,13 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint, EarlyStopping
 
-warnings.filterwarnings('ignore')
-tf.random.set_seed(42)
 
-
-def create_mlp(num_columns, num_labels, hidden_units, dropout_rates, label_smoothing, learning_rate):
+def create_mlp(num_columns,
+               num_labels,
+               hidden_units, 
+               dropout_rates,
+               label_smoothing,
+               learning_rate):
     inp = tf.keras.layers.Input(shape=(num_columns,))
     x = tf.keras.layers.BatchNormalization()(inp)
     x = tf.keras.layers.Dropout(dropout_rates[0])(x)
@@ -39,6 +41,9 @@ def create_mlp(num_columns, num_labels, hidden_units, dropout_rates, label_smoot
     return model
 
 
+warnings.filterwarnings('ignore')
+tf.random.set_seed(42)
+
 train = pd.read_csv('/kaggle/input/jane-street-market-prediction/train.csv')
 features = [c for c in train.columns if 'feature' in c]
 print('Filling...')
@@ -51,7 +56,6 @@ print('Converting...')
 f_mean = f_mean.values
 np.save('f_mean.npy', f_mean)
 print('Finish.')
-
 batch_size = 4096
 hidden_units = [384, 896, 896, 384]
 dropout_rates = [0.10143786981358652, 0.19720339053599725, 0.2703017847244654, 0.23148340929571917, 0.2357768967777311]
