@@ -5,7 +5,7 @@ import os
 
 # number of rows found: 2390490 (more than 2 millions)
 # number of days : 500
-# number of records per day:
+# number of records per day: 4781 ca.
 
 
 def read_big_csv(filepath: str, s: int = None, n: int = None) -> pd.DataFrame:
@@ -30,7 +30,8 @@ def count_rows(filepath: str):
 file = '../jane-street-market-prediction/train.csv'
 os.chdir(r'C:\Kaggle-King\janestreetKaggle')
 
-r = count_rows(filepath=file)
-view_top = read_big_csv(filepath=file, n=100)
-# view_bottom = read_big_csv(filepath=file, s=2390400)
+if __name__ == '__main__':
+    r = count_rows(filepath=file)
+    view_top = read_big_csv(filepath=file, n=100)
+    # view_bottom = read_big_csv(filepath=file, s=2390400)
 
