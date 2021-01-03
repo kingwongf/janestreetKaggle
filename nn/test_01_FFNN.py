@@ -5,7 +5,6 @@
 from janestreetKaggle.tools import big_csv_reader as bcr
 from tensorflow import keras
 import numpy as np
-from matplotlib import pyplot as plt
 import os
 import pandas as pd
 
@@ -18,8 +17,8 @@ loss = 'binary_crossentropy'
 metrics = ['binary_crossentropy']
 
 
-file = '../jane-street-market-prediction/train.csv'
-os.chdir(r'C:\Kaggle-King\janestreetKaggle')
+file = '../../jane-street-market-prediction/train.csv'
+os.chdir(r'/janestreetKaggle')
 
 
 if __name__ == '__main__':
