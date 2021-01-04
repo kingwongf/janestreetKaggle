@@ -93,15 +93,20 @@ os.chdir(r'C:\Kaggle-King\janestreetKaggle')
 
 
 if __name__ == '__main__':
+    option_1 = False
+    option_2 = True
     # r = count_rows(filepath=file)
     # view_top = read_big_csv(filepath=file, n=100)
     # view_bottom = read_big_csv(filepath=file, s=2390400)
     # dataf, nr = make_stats()
     # dataf.to_csv(r'C:\Kaggle-King\janestreetKaggle\tools\feature_stats.csv')
     # print('n records = ', nr)
-    r = find_correlations(dataset=read_big_csv())
-    print(''.join(['non-correlated-features:\n', r, '(N: ', len(r), ')']))
-    f = open(r'C:\Kaggle-King\janestreetKaggle\tools\features_not_correlated.txt', 'wt')
-    f.write('\n'.join(r))
-    f.close()
+    if option_1:
+        r = find_correlations(dataset=read_big_csv())
+        print(''.join(['non-correlated-features:\n', r, '(N: ', len(r), ')']))
+        f = open(r'C:\Kaggle-King\janestreetKaggle\tools\features_not_correlated.txt', 'wt')
+        f.write('\n'.join(r))
+        f.close()
 
+    if option_2:
+        data = read_big_csv(s=50, n=20)
