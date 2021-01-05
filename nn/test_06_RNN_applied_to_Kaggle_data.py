@@ -207,7 +207,7 @@ if __name__ == '__main__':
         x = fill_nan(x)
         print('NORMALISING... ', end='')
         x, y = normalise_data(x), normalise_data(y)
-        print('ORGANISING... ')
+        print('ORGANISING DATA IN APPROPRIATE SETS... ')
         x_train, y_train = prepare_full_training_set(df_x=x, df_y=y,
                                                      number_of_samples_per_lenght=N_BATCH_SAMPLES,
                                                      number_of_sample_lenghts=N_LENGHTS)
@@ -219,6 +219,17 @@ if __name__ == '__main__':
         i_f += 1
         filename = r'/nn/saved_models/RNN_06_test_' + str(i_f)
     model.save(filename)
+    print('EVALUATING ON THE TEST SET ')
     # NOW TEST THE MODEL OVER THE TEST SET
+    print('EVALUATING THE KAGGLE SCORE ON THE TRAIN AND TEST SETS ')
     print('PROCESS ENDED')
+
+# todo: the y_hats must be the probabilities. SO:
+#  1. built the "prob-y-hat-set", and normalise them to [0-1]
+#  2. train and evaluate against these y-hats
+#  3. evaluate the kaggle-score on the test set: transform back y_hat to resps and also transform back weights. Do not forget to re-include the date.
+#  4. evaluate the kaggle-score on the training set, according to the same methodology
+#  5. introduce a dev set
+#  6. introduce a final layer trasforming the ouputs back to "resp"
+
 
