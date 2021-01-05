@@ -5,13 +5,19 @@
 import numpy as np
 import pandas as pd
 import janestreetKaggle.tools.big_csv_reader as bcr
-# from tensorflow import keras
+from tensorflow import keras
+import os
 
+HOT_VECTOR_SIZE = 84
+BATCH_SIZE = 500000
+MINIMUM_SEQUENCE_LENGHT, MAXIMUM_SEQUENCE_LENGHT = (150, 500)
+N_BATCH_SAMPLES = 10000
+N_LENGHTS = 20
+# better dividing the training set in aliquot parts
 
-N_TRAIN = 500
-N_TEST = 100
 N_RECORDS = 2390490
-MINIMUM_SEQUENCE_LENGHT, MAXIMUM_SEQUENCE_LENGHT = (10, 30)
+N_TRAIN = 2300000
+N_TEST = N_RECORDS - N_TRAIN
 
 y_columns = ['resp', 'resp_1', 'resp_2', 'resp_3', 'resp_4']
 
@@ -111,24 +117,48 @@ def prepare_full_training_set(df_x: pd.DataFrame, df_y: pd.DataFrame,
 
 
 # HERE! IMPLEMENT THE SCORE METRIC NOW!
-def generate_the_score_metric(data):
+def generate_the_score_metric(x_data, y_data, i):
     # THIS IS ANOTHER DIFFICULT
-    y_data = data[y_columns].multiply(data['weight'], axis='index')
-    return
+    # the probabilities are weight * resp * action (and for each one of the resps)
+    # the probabilities need to be maximised, so the 1/p needs to be minimised.
+    r = y_data.iloc[i]['resp']
+    true_y = x_data.iloc[i]['weight']*r*(r > 0)
+    # probability = data[y_columns].multiply(data['weight'], axis='index')
+    return true_y
 
 
-def build_the_model(training_sequence, training_y_hat):
-    # AMEND ACCORDINGLY THE NEW ARCHITECTURE
+def compute_scores(edge_0: int, edge_1: int, actions):
+    results = y_data[['resp', 'weight']].iloc[edge_0:edge_1]
+    results['action'] = actions
+    current_score = score(r=results)
+    results['action'] = (results['resp'] > 0)*1
+    max_possible_score = score(r=results)
+    print('max score:', max_possible_score, ' -- this score:', current_score, ' -- %:', current_score/max_possible_score*100)
+    return current_score, max_possible_score
+
+
+def score(r):
+    s = sum(r.prod(axis=1))  # to be refined by date
+    p = np.array([s])
+    t = p.sum() / np.sqrt((p * p).sum()) * np.sqrt(250 / len(p))
+    u = min(max(0, t), 6) * p.sum()
+    return u
+
+
+def build_the_model():
     model_1 = keras.Sequential()
-    model_1.add(keras.layers.LSTM(128, input_shape=(500, nc - 5)))
-    model_1.add(keras.layers.Dense(5, activation='softmax'))
-    model_1.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    model_1.fit(training_sequence, training_y_hat, epochs=3)
-    model_1.summary()
-    return
+    model_1.add(keras.layers.LSTM(128, input_shape=(500, 84)))
+    model_1.add(keras.layers.Dense(5, activation='sigmoid'))
+    model_1.compile(loss='MeanSquaredError', optimizer='adam', metrics=['accuracy'])
+    print(model_1.summary())
+    return model_1
 
 
 def train_the_model_with_varaiable_lenght_sequences():
+    return
+
+
+def save_and_load_next_training_data():
     return
 
 
@@ -162,10 +192,33 @@ def predict_and_evaluate(model_1, test_sequence):
 # SECOND STRATEGY(BEST?): have a sigmoid for each of the 5 output neurons, and encode the resp{1..5} to an interval [0..1]
 # In fact, maybe I don't need a softmax: just 5 neurons with a sigmoid
 
+
 if __name__ == '__main__':
-    x, y = load_data_set()
-    x = suppress_correlated_features(x)
-    x = fill_nan(x)
-    x, y = normalise_data(x), normalise_data(y)
-    x_training = prepare_full_training_set(df_x=x, df_y=y, number_of_samples_per_lenght=20, number_of_sample_lenghts=4)
-    print('ok')
+    model = build_the_model()
+    number_of_batches = N_RECORDS // BATCH_SIZE + bool(N_RECORDS % BATCH_SIZE)
+    for b in range(number_of_batches):
+        print('TRAINING NOW BATCH', b)
+        s = b*BATCH_SIZE
+        n = min(BATCH_SIZE, N_RECORDS - s)
+        print('LOADING... ', end='')
+        x, y = load_data_set(start=s, n=n)
+        print('PURGING... ', end='')
+        x = suppress_correlated_features(x)
+        x = fill_nan(x)
+        print('NORMALISING... ', end='')
+        x, y = normalise_data(x), normalise_data(y)
+        print('ORGANISING... ')
+        x_train, y_train = prepare_full_training_set(df_x=x, df_y=y,
+                                                     number_of_samples_per_lenght=N_BATCH_SAMPLES,
+                                                     number_of_sample_lenghts=N_LENGHTS)
+        print('TRAINING')
+        model.fit(x_train, y_train)
+    print('SAVING')
+    filename, i_f = 'not_existing', 0
+    while not os.path.exists(filename):
+        i_f += 1
+        filename = r'/nn/saved_models/RNN_06_test_' + str(i_f)
+    model.save(filename)
+    # NOW TEST THE MODEL OVER THE TEST SET
+    print('PROCESS ENDED')
+
