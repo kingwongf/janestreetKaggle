@@ -53,9 +53,9 @@ def convert_back_pred_y_hat_to_prob_hat_inputlike(w_df: np.array, y_df: np.array
     a = 1 / (w_max - w_min)
     b = -w_min * a
     w_original = (w_df - b)/a
-
     original_resp = w_original_resp / w_original
-    return original_resp
+
+    return w_original, original_resp
 
 
 def load_data_set(start: int = None, n: int = N_TRAIN + N_TEST):
@@ -266,7 +266,7 @@ if __name__ == '__main__':
     if predict:
         model = keras.models.load_model(r'./nn/saved_models/RNN_06_test_2')
         # PREPARE THE TEST SET:
-        s, n = 0, 1000      # move 0 to 5000
+        s, n = 6000, 1000      # move 0 to 5000
         x, y = fully_prepare_data_sets(s=s, n=n)
         x_test, y_test = prepare_full_test_set(df_x=x, df_y=y)
         y_pred = []
@@ -286,13 +286,20 @@ if __name__ == '__main__':
 
         weights = np.asarray([z[0][-1][0] for z in x_test])
         y_used_for_test = np.asarray([z[0][0] for z in y_test])
-        y_inverted = convert_back_pred_y_hat_to_prob_hat_inputlike(w_df=weights,
-                                                                   y_df=y_used_for_test)
+        test_weights, y_inverted = convert_back_pred_y_hat_to_prob_hat_inputlike(w_df=weights,
+                                                                                 y_df=y_used_for_test)
         y_used_for_pred = np.asarray([z[0][0] for z in y_pred])
-        y_pred_inverted = convert_back_pred_y_hat_to_prob_hat_inputlike(w_df=weights,
-                                                                        y_df=y_used_for_pred)
-        # EVALUATING NOW THE KAGGLE SCORE:
-
+        original_weights, y_pred_inverted = convert_back_pred_y_hat_to_prob_hat_inputlike(w_df=weights,
+                                                                                          y_df=y_used_for_pred)
+        # EVALUATING NOW THE KAGGLE SCORE ON THE SELF-TEST SET
+        y_inverted[np.isneginf(y_inverted)] = 0
+        y_inverted[np.isnan(y_inverted)] = 0
+        probabilities = test_weights * y_inverted * (y_inverted > 0)
+        probabilities_sum = probabilities.sum()
+        probabilities_var = np.var(probabilities)
+        unique_dates_number = len(set(x_originals['date']))
+        t = probabilities_sum/probabilities_var * np.sqrt(250/unique_dates_number)
+        u = min(max(t, 0), 6)*probabilities_sum
 
         # there is something strange here above: not quite the right back-algorithm... needs to be corrected.
         # Let's try to see what happens with y_test in place of y_pred
