@@ -9,7 +9,7 @@ import time
 # number of records per day: 4781 ca.
 
 file = '../jane-street-market-prediction/train.csv'
-file_lenght = 2390490
+file_lenght = 2390492
 
 
 def assess_time_to_load(filepath: str = file, n: int = 0):
@@ -24,7 +24,7 @@ def read_big_csv(filepath: str = file, s: int = None, n: int = None) -> pd.DataF
     print('loading records')
     t0 = time.time()
     if s is not None and n is not None:
-        rows_to_skip = list(range(0, s)) + list(range(s+n, file_lenght))
+        rows_to_skip = list(range(1, s+1)) + list(range(s+1+n, file_lenght))
         rows = pd.read_csv(filepath, header=0, skiprows=rows_to_skip)
     elif n is not None:
         rows = pd.read_csv(filepath, header=0, nrows=n)
@@ -89,12 +89,26 @@ def plot_feature_stats():
     stats.plot()
 
 
+def make_stats_on_weighted_resp(n: int = None):
+    stats = {}
+    data = read_big_csv(n=n)
+    data = data[['resp', 'resp_1', 'resp_2', 'resp_3', 'resp_4']].multiply(data['weight'], axis='index')
+    stats['minima'] = data.min()
+    stats['maxima'] = data.max()
+    stats['average'] = data.mean()
+    stats['variance'] = data.var()
+    number_of_records = len(data)
+    stats_df = pd.DataFrame(data=stats)
+    return stats_df, number_of_records
+
+
 os.chdir(r'C:\Kaggle-King\janestreetKaggle')
 
 
 if __name__ == '__main__':
     option_1 = False
-    option_2 = True
+    option_2 = False
+    option_3 = False
     # r = count_rows(filepath=file)
     # view_top = read_big_csv(filepath=file, n=100)
     # view_bottom = read_big_csv(filepath=file, s=2390400)
@@ -110,3 +124,7 @@ if __name__ == '__main__':
 
     if option_2:
         data = read_big_csv(s=50, n=20)
+
+    if option_3:
+        df, nr = make_stats_on_weighted_resp()
+        df.to_csv(r'C:\Kaggle-King\janestreetKaggle\tools\weighted_responses_stats.csv')
