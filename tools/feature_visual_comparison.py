@@ -41,7 +41,7 @@ def plot_feature(data, n):
     return my_plot
 
 
-def via(p):
+def remove_feature(p):
     l0 = p.pop(0)
     l0.remove()
 
