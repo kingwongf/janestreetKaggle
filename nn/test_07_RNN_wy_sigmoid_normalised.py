@@ -9,6 +9,8 @@
 #  worth to find out how many 'nans' in the feature data?
 #  introduce a dev set
 #  introduce a final layer trasforming the ouputs back to "resp"
+#  use a different normalization of features (with mu and sigma)
+#  make a graph of the original resps?
 
 import numpy as np
 import pandas as pd
@@ -16,12 +18,20 @@ import janestreetKaggle.tools.big_csv_reader as bcr
 from tensorflow import keras
 import os
 
-rnn_to_use = r'./nn/saved_models/RNN_06_test_3'
+rnn_to_use = r'./nn/saved_models/RNN_06_test_4'
 train, predict = False, True
 use_test_size = True
-plot_consistency_check = True
+plot_consistency_check = False
 
 if use_test_size:
+    # HOT_VECTOR_SIZE = 84
+    # BATCH_SIZE = 5000
+    # MINIMUM_SEQUENCE_LENGHT, MAXIMUM_SEQUENCE_LENGHT = (150, 500)
+    # N_BATCH_SAMPLES = 50
+    # N_LENGHTS = 10
+    # N_RECORDS = 6000
+    # N_TRAIN = 5000
+    # N_TEST = N_RECORDS - N_TRAIN
     HOT_VECTOR_SIZE = 84
     BATCH_SIZE = 100000     # 5000
     MINIMUM_SEQUENCE_LENGHT, MAXIMUM_SEQUENCE_LENGHT = (150, 500)
@@ -37,9 +47,20 @@ else:
     N_BATCH_SAMPLES = 10000
     N_LENGHTS = 20
     N_RECORDS = 2390490
-    N_TRAIN = 2300000
+    N_TRAIN = 2370490
     N_TEST = N_RECORDS - N_TRAIN
 y_columns = ['resp', 'resp_1', 'resp_2', 'resp_3', 'resp_4']
+
+
+def sigmoid_dir(x):
+    # maps to the range [-1, +1]
+    sigma = 2*(1/(1 + np.exp(-x)) - 0.5)
+    return sigma
+
+
+def sigmoid_inv(x):
+    inv = - np.log(2/(x + 1) - 1)
+    return inv
 
 
 def build_the_model():
@@ -77,7 +98,7 @@ def fill_nan(df: pd.DataFrame):
     return df
 
 
-def preprocess_loaded_dataset(s, n):
+def load_and_preprocess_dataset(s, n):
     print('LOADING... ', end='')
     x, y = load_data_set(start=s, n=n)
     print('PURGING... ', end='')
@@ -87,7 +108,7 @@ def preprocess_loaded_dataset(s, n):
     y = y.multiply(x['weight'], axis='index')  # weight all the resp and consider them as the effective y_hats
     print('NORMALISING NOW X AND Y_HATS')
     x = normalise_data(x, r'C:\Kaggle-King\janestreetKaggle\tools\feature_stats.csv')
-    y = normalise_data(y, r'C:\Kaggle-King\janestreetKaggle\tools\weighted_responses_stats.csv')
+    y = sigmoid_dir(y)
     return x, y
 
 
@@ -118,7 +139,7 @@ def prepare_multiple_hot_vectors_input_set(df_x: pd.DataFrame, df_y: pd.DataFram
     for p in range(number_of_samples):
         _, one_input_sequence, y_hat = prepare_one_hot_vectors_input_set(df_x=df_x, df_y=df_y,
                                                                          sample_size=sample_size, start=start_points[p])
-        x_training_set[i], y_training_set[i] = one_input_sequence, y_hat
+        x_training_set[p], y_training_set[p] = one_input_sequence, y_hat
     return x_training_set, y_training_set
 
 
@@ -138,7 +159,7 @@ def prepare_full_training_set(df_x: pd.DataFrame, df_y: pd.DataFrame,
         start_points.extend(start_points_segment)
     start_points = np.asarray(start_points)
     for n_l in range(number_of_sample_lenghts):
-        start_points_chunk = start_points[number_of_samples_per_lenght*i: number_of_samples_per_lenght*(n_l + 1)]
+        start_points_chunk = start_points[number_of_samples_per_lenght*n_l: number_of_samples_per_lenght*(n_l + 1)]
         x_training_chunk, y_training_chunk = prepare_multiple_hot_vectors_input_set(df_x=df_x, df_y=df_y, 
                                                                                     start_points=start_points_chunk, 
                                                                                     sample_size=sample_lenghts[n_l])
@@ -155,18 +176,14 @@ def prepare_full_test_set(df_x: pd.DataFrame, df_y: pd.DataFrame):
         sample_size = np.random.randint(MINIMUM_SEQUENCE_LENGHT, min(MAXIMUM_SEQUENCE_LENGHT, test_size - p))
         x__test, y__test = prepare_multiple_hot_vectors_input_set(df_x=df_x, df_y=df_y,
                                                                   sample_size=sample_size,
-                                                                  start_points=[i])
+                                                                  start_points=[p])
         test_list_x.append(x__test)
         test_list_y.append(y__test)
     return test_list_x, test_list_y
 
 
 def convert_back_pred_y_hat_to_prob_hat_inputlike(w_df: np.array, y_df: np.array):
-    w_stats = pd.read_csv(r'C:\Kaggle-King\janestreetKaggle\tools\weighted_responses_stats.csv', index_col=0)       # load the file with the wegighted minima & maxima
-    w_resp_min, w_resp_max = w_stats.loc['resp']['minima'], w_stats.loc['resp']['maxima']
-    a = 1 / (w_resp_max - w_resp_min)
-    b = -w_resp_min * a
-    w_original_resp = (y_df - b)/a
+    w_original_resp = sigmoid_inv(y_df)
 
     stats = pd.read_csv(r'C:\Kaggle-King\janestreetKaggle\tools\feature_stats.csv', index_col=0)        # load the file with the minima & maxima
     w_min, w_max = stats.loc['weight']['minima'], stats.loc['weight']['maxima']
@@ -178,6 +195,17 @@ def convert_back_pred_y_hat_to_prob_hat_inputlike(w_df: np.array, y_df: np.array
     return w_original, original_resp
 
 
+def evaluate_kaggle_score(w, y_inv):
+    y_inverted[np.isneginf(y_inv)] = 0
+    y_inverted[np.isnan(y_inv)] = 0
+    probabilities = w * y_inv * (y_inv > 0)
+    probabilities_sum = probabilities.sum()
+    probabilities_var = np.var(probabilities)
+    t = probabilities_sum/probabilities_var * np.sqrt(250/1)
+    u = min(max(t, 0), 6)*probabilities_sum
+    return u
+
+
 if __name__ == '__main__':
 
     if train:
@@ -185,10 +213,10 @@ if __name__ == '__main__':
         model = build_the_model()
         number_of_batches = N_TRAIN // BATCH_SIZE + bool(N_TRAIN % BATCH_SIZE)
         for batch in range(number_of_batches):
-            print('TRAINING NOW BATCH %d / %d' % (batch, number_of_batches))
+            print('TRAINING NOW BATCH %d / %d' % (batch + 1, number_of_batches))
             start_point = batch*BATCH_SIZE
             n_records = min(BATCH_SIZE, N_RECORDS - start_point)
-            x0, y0 = preprocess_loaded_dataset(s=start_point, n=n_records)
+            x0, y0 = load_and_preprocess_dataset(s=start_point, n=n_records)
             x_train, y_train = prepare_full_training_set(df_x=x0, df_y=y0,
                                                          number_of_samples_per_lenght=N_BATCH_SAMPLES,
                                                          number_of_sample_lenghts=N_LENGHTS)
@@ -203,11 +231,11 @@ if __name__ == '__main__':
         print('PROCESS ENDED')
 
     if predict:
-        model = keras.models.load_model(r'./nn/saved_models/RNN_06_test_3')
+        model = keras.models.load_model(rnn_to_use)
 
         # PREPARE THE TEST SET:
         s_test, n_test = N_TRAIN, N_TEST
-        x0, y0 = preprocess_loaded_dataset(s=s_test, n=n_test)
+        x0, y0 = load_and_preprocess_dataset(s=s_test, n=n_test)
         x_test, y_test = prepare_full_test_set(df_x=x0, df_y=y0)
 
         # PREDICT
@@ -221,8 +249,7 @@ if __name__ == '__main__':
         outcome = m.result().numpy()
         print('mean squared error:', outcome)
 
-# WARNING: CHECK THE PROPER INCLUSION OF THE DATES!!
-        # EVALUATE KAGGLE SCORE ON THE TEST SET:
+        # ROLLING BACK THE PREDICTED VALUES TO 'RESP' FORM:
         x_originals, y_originals = load_data_set(start=s_test, n=n_test)
         y_hat_pos = [element.shape[1] + i - 1 for i, element in enumerate(x_test)]
         resps_original = np.asarray([y_originals.iloc[p]['resp'] for p in y_hat_pos])     # using a numpy mask instead of a generator?
@@ -234,15 +261,9 @@ if __name__ == '__main__':
         y_used_for_pred = np.asarray([z[0][0] for z in y_pred])
         original_weights, y_pred_inverted = convert_back_pred_y_hat_to_prob_hat_inputlike(w_df=weights,
                                                                                           y_df=y_used_for_pred)
-        # EVALUATING NOW THE KAGGLE SCORE ON THE SELF-TEST SET
-        y_inverted[np.isneginf(y_inverted)] = 0
-        y_inverted[np.isnan(y_inverted)] = 0
-        probabilities = test_weights * y_inverted * (y_inverted > 0)
-        probabilities_sum = probabilities.sum()
-        probabilities_var = np.var(probabilities)
-        unique_dates_number = len(set(x_originals['date']))
-        t = probabilities_sum/probabilities_var * np.sqrt(250/unique_dates_number)
-        u = min(max(t, 0), 6)*probabilities_sum
+# WARNING: CHECK THE PROPER INCLUSION OF THE DATES!!
+        # EVALUATING NOW THE KAGGLE SCORE ON THE SELF-TEST SET (= MAXIMUM ALLOWABLE SCORE)
+        k_score = evaluate_kaggle_score(w=test_weights, y_inv=y_inverted)
 
         if plot_consistency_check:
             from matplotlib import pyplot as plt
