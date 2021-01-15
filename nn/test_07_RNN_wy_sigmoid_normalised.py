@@ -196,8 +196,9 @@ def convert_back_pred_y_hat_to_prob_hat_inputlike(w_df: np.array, y_df: np.array
 
 
 def evaluate_kaggle_score(w, y_inv):
-    y_inverted[np.isneginf(y_inv)] = 0
-    y_inverted[np.isnan(y_inv)] = 0
+    y_inv[np.isneginf(y_inv)] = 0
+    y_inv[np.isinf(y_inv)] = 0
+    y_inv[np.isnan(y_inv)] = 0
     probabilities = w * y_inv * (y_inv > 0)
     probabilities_sum = probabilities.sum()
     probabilities_var = np.var(probabilities)
@@ -262,8 +263,9 @@ if __name__ == '__main__':
         original_weights, y_pred_inverted = convert_back_pred_y_hat_to_prob_hat_inputlike(w_df=weights,
                                                                                           y_df=y_used_for_pred)
 # WARNING: CHECK THE PROPER INCLUSION OF THE DATES!!
+# WARNING: THE SCORE IS NOT COMPUTED ON PARTIAL DAILY SCORES YET!
         # EVALUATING NOW THE KAGGLE SCORE ON THE SELF-TEST SET (= MAXIMUM ALLOWABLE SCORE)
-        k_score = evaluate_kaggle_score(w=test_weights, y_inv=y_inverted)
+        k_score = evaluate_kaggle_score(w=original_weights, y_inv=y_pred_inverted)
 
         if plot_consistency_check:
             from matplotlib import pyplot as plt
